@@ -124,7 +124,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.75);
   border-radius: inherit;
   pointer-events: none;
   z-index: 1;

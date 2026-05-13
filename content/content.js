@@ -107,6 +107,29 @@
     return [];
   }
 
+  // Convert "posted X ago" text to an absolute timestamp
+  function parsePostedDate(text) {
+    if (!text) return null;
+    const lower = text.toLowerCase().replace('posted', '').trim();
+    const now = Date.now();
+    const MS = { minute: 60000, hour: 3600000, day: 86400000, week: 604800000, month: 2592000000, quarter: 7776000000 };
+
+    // Match patterns like "2 hours ago", "last month", "yesterday", "3 quarters ago"
+    const match = lower.match(/(\d+)\s*(minute|hour|day|week|month|quarter)s?\s*ago/);
+    if (match) {
+      const num = parseInt(match[1]);
+      const unit = match[2];
+      return now - num * (MS[unit] || 0);
+    }
+    if (lower.includes('yesterday')) return now - MS.day;
+    if (lower.includes('just now') || lower.includes('moment')) return now;
+    if (lower.match(/last\s+month/)) return now - MS.month;
+    if (lower.match(/last\s+week/)) return now - MS.week;
+    if (lower.match(/last\s+quarter/)) return now - MS.quarter;
+
+    return null;
+  }
+
   function detectBudgetType(text) {
     if (!text) return null;
     const lower = text.toLowerCase();
@@ -138,6 +161,7 @@
       budgetType: detectBudgetType(budgetTypeText || budget),
       clientCountry,
       postedDate,
+      postedTimestamp: parsePostedDate(postedDate),
       skills,
       descriptionSnippet,
     };
@@ -167,6 +191,7 @@
       budgetType: detectBudgetType(budget),
       clientCountry,
       postedDate,
+      postedTimestamp: parsePostedDate(postedDate),
       skills,
       descriptionSnippet,
     };
@@ -301,9 +326,16 @@
       e.stopPropagation();
       if (!jobData.id) return;
       const jobs = await getJobs();
-      if (jobs[jobData.id] && jobs[jobData.id].status === 'rejected') return;
+      const existing = jobs[jobData.id];
 
-      const job = jobs[jobData.id] || {
+      // Toggle off - unreject
+      if (existing && existing.status === 'rejected') {
+        await removeJob(jobData.id);
+        applyState(null);
+        return;
+      }
+
+      const job = existing || {
         ...jobData,
         shortlistedAt: Date.now(),
         rating: null,
@@ -642,24 +674,55 @@
     }
   }
 
-  // Monitor for return from proposal page (user applied and came back)
-  function watchForApplicationReturn() {
-    let wasOnProposalPage = false;
+  // Detect application on proposal/confirmation pages
+  // After submitting, Upwork may show a confirmation on /proposals/job/~ID or similar
+  async function detectAppliedOnProposalPage() {
+    if (!contextValid()) return;
+    const path = window.location.pathname;
 
-    const checkUrl = () => {
-      const path = window.location.pathname;
-      const isProposalPage = path.includes('/proposals/job/') || path.includes('/apply/');
+    // Extract job ID from proposal page URL (e.g. /proposals/job/~0123456789/)
+    const jobId = getJobIdFromUrl(window.location.href);
+    if (!jobId) return;
 
-      if (wasOnProposalPage && !isProposalPage) {
-        // User left the proposal page - check if they applied
-        setTimeout(detectAppliedStatus, 1500);
-      }
-      wasOnProposalPage = isProposalPage;
+    const jobs = await getJobs();
+    const job = jobs[jobId];
+    if (!job || job.status === 'applied') return;
+
+    const bodyText = document.body.innerText.toLowerCase();
+    const isConfirmation = bodyText.includes('proposal submitted') ||
+                           bodyText.includes('your proposal') ||
+                           bodyText.includes('submitted successfully') ||
+                           bodyText.includes('already submitted a proposal') ||
+                           bodyText.includes('view proposal');
+
+    if (isConfirmation) {
+      job.status = 'applied';
+      await saveJob(job);
+    }
+  }
+
+  // Watch for DOM changes that indicate a submission confirmation appeared
+  function watchForApplicationConfirmation() {
+    let debounceTimer = null;
+
+    const check = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const path = window.location.pathname;
+        const isProposalPage = path.includes('/proposals/') || path.includes('/apply/');
+        const isDetailPage = !!path.match(/\/jobs\/.*~\d+/);
+
+        if (isProposalPage) {
+          detectAppliedOnProposalPage();
+        } else if (isDetailPage) {
+          detectAppliedStatus();
+        }
+      }, 1500);
     };
 
-    const obs = new MutationObserver(checkUrl);
+    const obs = new MutationObserver(check);
     obs.observe(document.body, { childList: true, subtree: true });
-    checkUrl();
+    check();
   }
 
   // ----------------------------------------------------------
@@ -709,10 +772,9 @@
     } else if (pageType === 'detail') {
       injectDetailButton();
       injectReviewOverlay();
-      // Check applied status after page settles
       setTimeout(detectAppliedStatus, 1000);
     }
-    watchForApplicationReturn();
+    watchForApplicationConfirmation();
   }
 
   // Upwork is an SPA - re-init on URL changes

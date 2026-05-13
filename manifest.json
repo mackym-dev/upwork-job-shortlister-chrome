@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Upwork Job Shortlister",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Shortlist and review Upwork jobs in two rounds: quick collect, then detailed star ratings.",
   "permissions": [
     "storage",
