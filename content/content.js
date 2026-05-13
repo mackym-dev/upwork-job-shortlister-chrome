@@ -11,8 +11,8 @@
   const SELECTORS = {
     // Search results page
     search: {
-      jobCard: '[data-test="JobsList"] article, [data-test="job-tile-list"] article, .job-tile',
-      jobTitle: '[data-test="job-tile-title-link UpLink"], h2 a, a.job-tile-title',
+      jobCard: '[data-test="JobsList"] article, [data-test="job-tile-list"] article, .job-tile, section.air3-card-section, [data-test="job-tile-list"], .notifications-list__item',
+      jobTitle: '[data-test="job-tile-title-link UpLink"], h2 a, a.job-tile-title, h3.job-tile-title a, h3 a, a[href*="/jobs/"][href*="~"]',
       jobBudget: '[data-test="is-fixed-price"], [data-test="job-type-label"]',
       jobPosted: '[data-test="job-pubilshed-date"]',
       jobSkills: '[data-test="token"] .air3-token, [data-test="TokenClamp JobAttrs"] .air3-token',
@@ -36,7 +36,13 @@
   // ----------------------------------------------------------
   function getPageType() {
     const path = window.location.pathname;
-    if (path.includes('/search/jobs') || path.includes('/nx/search/jobs')) {
+    const search = window.location.search;
+    if (
+      path.includes('/search/jobs') ||
+      path.includes('/nx/search/jobs') ||
+      path.startsWith('/nx/find-work/') ||
+      (path.startsWith('/ab/notifications') && /[?&]tab=job_alerts\b/.test(search))
+    ) {
       return 'search';
     }
     if (path.match(/\/jobs\/.*~\d+/)) {
@@ -266,7 +272,7 @@
     wrap.appendChild(rejectBtn);
 
     function applyState(job) {
-      const card = wrap.closest('.job-tile, article');
+      const card = wrap.closest('.job-tile, article, section.air3-card-section, [data-test="job-tile-list"], .notifications-list__item');
       // Reset all states
       addBtn.classList.remove('ujs-shortlisted', 'ujs-applied');
       rejectBtn.classList.remove('ujs-rejected');
