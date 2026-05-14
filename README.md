@@ -2,6 +2,8 @@
 
 A Chrome extension for shortlisting and reviewing Upwork jobs in two rounds: a quick first pass to collect jobs, then a detailed review with star ratings to narrow down to the best ones to apply to.
 
+[Video Guide](https://www.loom.com/share/498f713da2db4539aed3cc3f54a07843)
+
 ## Features
 
 - **Round 1 - Quick shortlisting:** Browse Upwork job search results and click the + button to add jobs to your shortlist
