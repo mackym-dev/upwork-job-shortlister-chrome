@@ -254,6 +254,27 @@
     });
   }
 
+  function getLastActionDate() {
+    if (!contextValid()) return Promise.resolve(null);
+    return new Promise(resolve => {
+      chrome.storage.local.get({ lastActionDate: null }, result => resolve(result.lastActionDate));
+    });
+  }
+
+  function setLastActionDate(dateStr) {
+    if (!contextValid()) return Promise.resolve();
+    return new Promise(resolve => {
+      chrome.storage.local.set({ lastActionDate: dateStr }, resolve);
+    });
+  }
+
+  function getTodayDateStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
   // ----------------------------------------------------------
   // Shortlist + reject buttons on SEARCH RESULTS
   // ----------------------------------------------------------
