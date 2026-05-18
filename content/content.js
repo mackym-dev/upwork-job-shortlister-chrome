@@ -461,6 +461,7 @@
       e.preventDefault();
       e.stopPropagation();
       if (!jobData.id) return;
+      await checkStaleList();
       const jobs = await getJobs();
       const existing = jobs[jobData.id];
 
@@ -485,6 +486,7 @@
       e.preventDefault();
       e.stopPropagation();
       if (!jobData.id) return;
+      await checkStaleList();
       const jobs = await getJobs();
       const existing = jobs[jobData.id];
 
