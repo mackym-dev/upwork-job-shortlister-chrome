@@ -371,6 +371,41 @@
     });
   }
 
+  let staleCheckPromise = null;
+
+  async function checkStaleList() {
+    // If a check is already in progress (another button clicked while modal open), wait for it
+    if (staleCheckPromise) return staleCheckPromise;
+
+    const today = getTodayDateStr();
+    const lastDate = await getLastActionDate();
+
+    // Same day - no check needed
+    if (lastDate === today) return;
+
+    const jobs = await getJobs();
+    const itemCount = Object.keys(jobs).length;
+
+    // No existing items - just update the date
+    if (itemCount === 0) {
+      await setLastActionDate(today);
+      return;
+    }
+
+    // Different day + items exist - show modal
+    staleCheckPromise = showStaleListModal(itemCount).then(async (choice) => {
+      if (choice === 'clear') {
+        await new Promise(resolve => {
+          chrome.storage.local.set({ jobs: {} }, resolve);
+        });
+      }
+      await setLastActionDate(today);
+      staleCheckPromise = null;
+    });
+
+    return staleCheckPromise;
+  }
+
   // ----------------------------------------------------------
   // Shortlist + reject buttons on SEARCH RESULTS
   // ----------------------------------------------------------
