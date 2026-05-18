@@ -254,6 +254,158 @@
     });
   }
 
+  function getLastActionDate() {
+    if (!contextValid()) return Promise.resolve(null);
+    return new Promise(resolve => {
+      chrome.storage.local.get({ lastActionDate: null }, result => resolve(result.lastActionDate));
+    });
+  }
+
+  function setLastActionDate(dateStr) {
+    if (!contextValid()) return Promise.resolve();
+    return new Promise(resolve => {
+      chrome.storage.local.set({ lastActionDate: dateStr }, resolve);
+    });
+  }
+
+  function getTodayDateStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
+  function showStaleListModal(itemCount) {
+    return new Promise(resolve => {
+      const host = document.createElement('div');
+      host.className = 'ujs-stale-modal-host';
+      const shadow = host.attachShadow({ mode: 'closed' });
+
+      shadow.innerHTML = `
+        <style>
+          :host {
+            all: initial;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          }
+          .backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .modal {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            padding: 24px;
+            max-width: 360px;
+            width: 90vw;
+            text-align: center;
+          }
+          .modal h3 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+          }
+          .modal p {
+            margin: 0 0 20px;
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.5;
+          }
+          .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+          }
+          .btn {
+            padding: 8px 18px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+          }
+          .btn-clear {
+            background: #dc2626;
+            color: #fff;
+            border-color: #dc2626;
+          }
+          .btn-clear:hover {
+            background: #b91c1c;
+          }
+          .btn-keep {
+            background: #fff;
+            color: #374151;
+          }
+          .btn-keep:hover {
+            background: #f3f4f6;
+          }
+        </style>
+        <div class="backdrop">
+          <div class="modal">
+            <h3>Previous items found</h3>
+            <p>You have ${itemCount} item${itemCount !== 1 ? 's' : ''} on your list from a previous session. Start fresh or keep adding?</p>
+            <div class="modal-actions">
+              <button class="btn btn-clear" id="clearBtn">Clear & continue</button>
+              <button class="btn btn-keep" id="keepBtn">Keep adding</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      function cleanup(result) {
+        host.remove();
+        resolve(result);
+      }
+
+      shadow.getElementById('clearBtn').addEventListener('click', () => cleanup('clear'));
+      shadow.getElementById('keepBtn').addEventListener('click', () => cleanup('keep'));
+
+      document.body.appendChild(host);
+    });
+  }
+
+  let staleCheckPromise = null;
+
+  async function checkStaleList() {
+    // If a check is already in progress (another button clicked while modal open), wait for it
+    if (staleCheckPromise) return staleCheckPromise;
+
+    const today = getTodayDateStr();
+    const lastDate = await getLastActionDate();
+
+    // Same day - no check needed
+    if (lastDate === today) return;
+
+    const jobs = await getJobs();
+    const itemCount = Object.keys(jobs).length;
+
+    // No existing items - just update the date
+    if (itemCount === 0) {
+      await setLastActionDate(today);
+      return;
+    }
+
+    // Different day + items exist - show modal
+    staleCheckPromise = showStaleListModal(itemCount).then(async (choice) => {
+      if (choice === 'clear') {
+        await new Promise(resolve => {
+          chrome.storage.local.set({ jobs: {} }, resolve);
+        });
+      }
+      await setLastActionDate(today);
+      staleCheckPromise = null;
+    });
+
+    return staleCheckPromise;
+  }
+
   // ----------------------------------------------------------
   // Shortlist + reject buttons on SEARCH RESULTS
   // ----------------------------------------------------------
@@ -309,6 +461,7 @@
       e.preventDefault();
       e.stopPropagation();
       if (!jobData.id) return;
+      await checkStaleList();
       const jobs = await getJobs();
       const existing = jobs[jobData.id];
 
@@ -333,6 +486,7 @@
       e.preventDefault();
       e.stopPropagation();
       if (!jobData.id) return;
+      await checkStaleList();
       const jobs = await getJobs();
       const existing = jobs[jobData.id];
 
