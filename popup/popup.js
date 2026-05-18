@@ -238,10 +238,16 @@
     render();
   });
 
-  // Open All in Tabs
+  // Open All in Tabs (respects current sort and filter order)
   openAllBtn.addEventListener('click', async () => {
     const jobs = await getJobs();
-    const urls = Object.values(jobs)
+    const settings = await getSettings();
+    let jobArray = Object.values(jobs);
+
+    jobArray = filterJobs(jobArray, settings.filterBy);
+    jobArray = sortJobs(jobArray, settings.sortBy);
+
+    const urls = jobArray
       .filter(j => j.status !== 'rejected' && j.url)
       .map(j => j.url);
 
