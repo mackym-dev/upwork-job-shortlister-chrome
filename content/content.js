@@ -409,7 +409,7 @@
   // ----------------------------------------------------------
   // Shortlist + reject buttons on SEARCH RESULTS
   // ----------------------------------------------------------
-  function createSearchButtons(jobData, existingJob) {
+  function createSearchButtons(jobData, existingJob, card) {
     const wrap = document.createElement('div');
     wrap.className = 'ujs-btn-group';
     wrap.dataset.ujsJobId = jobData.id;
@@ -426,7 +426,6 @@
     wrap.appendChild(rejectBtn);
 
     function applyState(job) {
-      const card = wrap.closest('.job-tile, article, section.air3-card-section, .notifications-list__item');
       // Reset all states
       addBtn.classList.remove('ujs-shortlisted', 'ujs-applied');
       rejectBtn.classList.remove('ujs-rejected');
@@ -531,7 +530,7 @@
       if (!jobData.id) return;
 
       const existingJob = jobs[jobData.id] || null;
-      const wrap = createSearchButtons(jobData, existingJob);
+      const wrap = createSearchButtons(jobData, existingJob, card);
 
       card.style.position = card.style.position || 'relative';
       card.appendChild(wrap);
